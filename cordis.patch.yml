@@ -1,0 +1,9 @@
+- insert:
+    - id: local-harness-switch
+      name: '@local/dsh-harness-switch'
+      config:
+        maxSessions: 4
+        maxMessages: 500
+        maxTextLength: 32000
+        requestTimeoutMs: 30000
+        disposeMs: 5000

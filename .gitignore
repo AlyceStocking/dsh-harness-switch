@@ -1,0 +1,6 @@
+node_modules/
+tests/.tmp-*/
+tests/.smoke-workspace/
+*.tgz
+.env
+*.local.json
