@@ -20,11 +20,18 @@ async function saveJson(path, data) {
 
 export function conversationForImport(messages, seen, currentId) {
   const known = new Set(seen);
-  const foreignCalls = new Set(messages.filter(m => m.source?.provider !== PROVIDER)
+  const own = new Set();
+  let engineTurn = false;
+  for (const message of messages) {
+    if (message.role === 'user' && message.source?.kind === 'user') engineTurn = false;
+    if (message.role === 'assistant' && message.source?.provider === PROVIDER && message.content.some(b => b.type === 'tool-call' && b.name === ENGINE_TOOL)) engineTurn = true;
+    if (engineTurn) own.add(message.id);
+  }
+  const foreignCalls = new Set(messages.filter(m => !own.has(m.id))
     .flatMap(m => m.content || []).filter(b => b.type === 'tool-call').map(b => b.id));
-  return messages.filter(m => m.id !== currentId && !known.has(m.id)).flatMap(m => {
+  return messages.filter(m => m.id !== currentId && !known.has(m.id) && !own.has(m.id)).flatMap(m => {
     const content = (m.content || []).filter(b => b.type !== 'reasoning' && (
-      (m.role === 'assistant' && m.source?.provider !== PROVIDER) ||
+      m.role === 'assistant' ||
       (m.role === 'user' && ['user', 'compaction'].includes(m.source?.kind)) ||
       (b.type === 'tool-result' && foreignCalls.has(b.toolCallId))
     ));

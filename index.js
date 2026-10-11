@@ -14,6 +14,7 @@ export function apply(ctx, config = {}) {
   const adapter = new EngineAdapter(store);
   const manager = new EngineManager(ctx, store, join(dirname(file), 'engine'));
   const scopes = new Map();
+  ctx.effect(() => () => { for (const release of scopes.values()) release(); scopes.clear(); });
   ctx.effect(() => () => manager.dispose());
   ctx.effect(() => ctx.provide('kimiEngine', manager));
   let registration;
@@ -33,9 +34,10 @@ export function apply(ctx, config = {}) {
         const releaseMode = agent.ctx.tools.presentAs('native');
         let releaseTool;
         try { releaseTool = agent.ctx.tools.register(manager.definition()); } catch (e) { releaseMode(); throw e; }
-        const release = () => { releaseTool(); releaseMode(); };
+        let released = false;
+        const release = () => { if (released) return; released = true; releaseTool(); releaseMode(); };
         scopes.set(agent, release);
-        agent.ctx.effect(() => () => scopes.delete(agent));
+        agent.ctx.effect(() => () => { release(); if (scopes.get(agent) === release) scopes.delete(agent); });
       }
       const { name, description, parameters } = manager.definition();
       return { ...assembled, sections: [{ name: 'harness-switch:transport', text: 'Kimi Code embedded runtime owns the model prompt, tool execution, permissions, Skills and compaction. This DSH request is a local transport envelope.' }], contexts: [], tools: [{ name, description, parameters }] };

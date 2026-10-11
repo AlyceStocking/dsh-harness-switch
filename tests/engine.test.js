@@ -116,6 +116,9 @@ test('history import pairs foreign calls/results, excludes engine transport and 
   assert.equal(imported.length, 2); assert.match(JSON.stringify(imported), /value/);
   assert.doesNotMatch(JSON.stringify(imported), /private|kimi_harness_turn/);
   assert.equal(conversationForImport(history, ['foreign', 'result'], 'current').length, 0);
+  history.push({ id: 'new-user', role: 'user', source: { kind: 'user' }, content: [{ type: 'text', text: 'try DSH tools' }] });
+  history.push({ id: 'same-provider', role: 'assistant', source: { provider: PROVIDER, model: 'kimi-dsh' }, content: [{ type: 'text', text: 'DSH_HARNESS_ANSWER' }] });
+  assert.match(JSON.stringify(conversationForImport(history, [], 'current')), /DSH_HARNESS_ANSWER/);
 });
 
 test('adapter schedules one transport call and replays its final answer without another API request', async () => {

@@ -30,7 +30,7 @@ try {
   const approvals = [];
   ctx.on('approval/request', async request => {
     approvals.push(request.toolName);
-    return ['Kimi · Workspace trust', 'Kimi · Read'].includes(request.toolName) ? 'allowed-once' : 'rejected';
+    return ['Kimi · Workspace trust', 'Kimi · Read'].includes(request.toolName) || (request.toolName === 'Kimi · Bash' && request.reason.includes('EMBEDDED_SHELL_OK')) ? 'allowed-once' : 'rejected';
   });
   fibers.push(await ctx.plugin(plugin, { settingsFile }));
   const requests = [];
@@ -69,13 +69,15 @@ try {
   assert.match(JSON.stringify(requests[0].messages), /EMBEDDED_ENGINE_OK/);
   selection.current = { provider: PROVIDER, model: 'kimi-k3', reasoningEffort: 'low' };
   assert.match(await turn('Do not use tools. What token did the other model just return?'), /FOREIGN_ENGINE_TOKEN/);
+  assert.match(await turn('Use Bash to execute exactly: printf EMBEDDED_SHELL_OK . Reply with the command output.'), /EMBEDDED_SHELL_OK/);
+  const shellResult = agent.session.snapshotEvents().filter(e => e.type === 'tool/result').at(-1);
+  const shellView = await ctx.kimiEngine.view(shellResult.data.meta.callId);
+  assert.ok(shellView.events.some(e => e.type === 'tool.call.started' && e.name === 'Bash'));
+  assert.ok(shellView.events.some(e => e.type === 'tool.result' && !e.isError && JSON.stringify(e.output).includes('EMBEDDED_SHELL_OK')));
   assert.match(await turn('/kimi-skill harness-smoke'), /SKILL_ENGINE_OK/);
   const skillResult = agent.session.snapshotEvents().filter(e => e.type === 'tool/result').at(-1);
   const skillView = await ctx.kimiEngine.view(skillResult.data.meta.callId);
   assert.ok(skillView.events.some(e => e.type === 'skill.activated' && e.skillName === 'harness-smoke'));
   assert.equal(await turn('/kimi-compact Preserve token facts from the conversation.'), 'Kimi context compacted.');
-  console.log(JSON.stringify({ sessionId: agent.session.id, embeddedRead: true, switchRestoredTools: true, importedForeignHistory: true, projectSkillActivated: true, compacted: true, approvals }));
+  console.log(JSON.stringify({ sessionId: agent.session.id, embeddedRead: true, approvedBash: true, switchRestoredTools: true, importedForeignHistory: true, projectSkillActivated: true, compacted: true, approvals }));
 } finally { for (const fiber of fibers.reverse()) await fiber.dispose(); }
-
-
-

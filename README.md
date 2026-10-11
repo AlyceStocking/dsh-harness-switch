@@ -94,7 +94,7 @@ node tests/native-smoke.mjs
 
 自动测试覆盖审批拒绝、停止/卸载无事件死等、去重、恢复、外部工具历史导入、异常不泄露认证数据、Skill/压缩 API 路由和设置/工具卡片渲染。
 
-真实 API 集成测试已验证 K3 的 Kimi Read、项目 Skill 激活、压缩，以及在同一 DSH agent/session 中切换回原生适配器再返回 Kimi。测试中的原生模型是本地替身，未调用真实 DeepSeek API。设置界面曾在隔离 DSH Web 配置中验证；v0.3 新工具卡片已做 React/jsdom 测试，桌面端尚未完整人工验收。
+真实 API 集成测试已验证 K3 的 Kimi Read、经过 DSH 审批的 Bash、项目 Skill 激活、压缩，以及在同一 DSH agent/session 中切换回原生适配器再返回 Kimi。测试中的原生模型是本地替身，未调用真实 DeepSeek API。v0.3 设置界面已在隔离 DSH Web 配置中验证保存 embedded core；v0.3 新工具卡片已做 React/jsdom 测试，桌面端尚未完整人工验收。
 
 源码重新打包需使用上述固定 commit：
 

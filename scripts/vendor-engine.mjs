@@ -58,4 +58,3 @@ await writeFile('vendor/engine/build-manifest.json', JSON.stringify({ commit, im
   patches: [{ file: 'bootstrapService.ts', purpose: 'Isolate the exclusive query-index cache from a concurrently running Kimi CLI', from: "join(options.homeDir, 'cache')", to: "join(options.homeDir, 'cache', 'dsh-harness-switch')" }],
 }, null, 2) + '\n');
 console.log(JSON.stringify({ bytes: result.metafile.outputs['vendor/engine/index.mjs'].bytes, external }, null, 2));
-
