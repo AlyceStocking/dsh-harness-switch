@@ -49,11 +49,6 @@ window.__ModuleLoader__.load({
           const [harnesses, setHarnesses] = useState([]);
           const [models, setModels] = useState([]);
           const [binding, setBinding] = useState('');
-          const [cwd, setCwd] = useState('');
-          const [restore, setRestore] = useState('');
-          const [session, setSession] = useState(null);
-          const [active, setActive] = useState([]);
-          const [message, setMessage] = useState('');
           const [busy, setBusy] = useState(false);
           const [error, setError] = useState('');
           const [notice, setNotice] = useState('');

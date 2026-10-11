@@ -6,6 +6,7 @@ import { mkdir } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import * as plugin from '../index.js';
 import { PROVIDER } from '../src/native.js';
+import { SettingsStore, defaults } from '../src/settings.js';
 const root = process.env.DSH_MODULES;
 if (!root) throw new Error('Set DSH_MODULES to installed DSH node_modules');
 const load = (name, file = 'index.js') => import(pathToFileURL(join(root, '@deepseek-ai', name, 'lib', file)).href);
@@ -21,6 +22,9 @@ try {
   }
   ctx.provide('connection', { rpc: { handle() { return () => {}; } } });
   await mkdir('tests/.smoke-workspace', { recursive: true });
+  const config = defaults();
+  config.bindings.push({ id: 'kimi-dsh', label: 'Kimi with DSH', model: 'kimi-code/k3', harness: 'dsh' });
+  await new SettingsStore(resolve('tests/.smoke-workspace/native-settings.json')).save(config);
   const kimiRequests = [];
   const registerAdapter = ctx.llm.registerAdapter.bind(ctx.llm);
   ctx.llm.registerAdapter = (providers, adapter) => {
@@ -63,6 +67,11 @@ try {
   await turn('Call harness_probe exactly once and reply with the verification token it returns.');
   assert.equal(toolCalls, 1, 'Kimi should execute the native DSH tool');
   assert.match(kimiRequests[0].system, /DSH compatibility runtime/);
+  assert.match(JSON.stringify(agent.session.deriveMessages().filter(m => m.role === 'assistant').at(-1)), /NATIVE_TOOL_OK/);
+  selection.current = { provider: PROVIDER, model: 'kimi-dsh', reasoningEffort: 'low' };
+  await turn('Do not use tools. Repeat the verification token from earlier.');
+  assert.doesNotMatch(kimiRequests.at(-1).system || '', /DSH compatibility runtime/);
+  assert.match(JSON.stringify(agent.session.deriveMessages().filter(m => m.role === 'assistant').at(-1)), /NATIVE_TOOL_OK/);
   selection.current = { provider: 'native-probe', model: 'native' };
   await turn('Continue in the same session.');
   assert.equal(observed.length, 1);
@@ -71,6 +80,7 @@ try {
   selection.current = { provider: PROVIDER, model: 'kimi-k3', reasoningEffort: 'low' };
   await turn('Do not use tools. Repeat the verification token from earlier.');
   assert.match(kimiRequests.at(-1).system, /DSH compatibility runtime/);
+  assert.match(JSON.stringify(agent.session.deriveMessages().filter(m => m.role === 'assistant').at(-1)), /NATIVE_TOOL_OK/);
   console.log(JSON.stringify({ nativeToolCalls: toolCalls, sameSession: agent.session.id, switchToNativeRestoredPrompt: true, historyPreserved: true, switchBackCompleted: true }));
 } finally { for (const fiber of fibers.reverse()) await fiber.dispose(); }
 

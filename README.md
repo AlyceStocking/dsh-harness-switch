@@ -71,7 +71,7 @@ $env:DSH_MODULES = '你的 DSH 安装目录/node_modules'
 node tests/native-smoke.mjs
 ```
 
-`native-smoke.mjs` 会调用真实 Kimi API并消耗额度：验证 DSH agent loop 的工具调用、同一 session 的模型切换、提示词恢复和历史保留。用于切回原生的适配器是本地测试替身，不会调用真实 DeepSeek API。设置界面用 React/jsdom 验证。独立 ACP 原型留在 `src/acp-prototype.js`，不由正式插件启动。
+`native-smoke.mjs` 会调用真实 Kimi API并消耗额度：验证 DSH agent loop 的工具调用、同一 session 的模型切换、提示词恢复和历史保留。用于切回原生的适配器是本地测试替身，不会调用真实 DeepSeek API。设置界面已通过 React/jsdom 测试，以及隔离 DSH Web 配置中的页面显示、模型读取和保存操作验证。桌面原生工作区选择器未在此次浏览器检查中验证。独立 ACP 原型留在 `src/acp-prototype.js`，不由正式插件启动。
 
 上游快照与 MIT 授权在 `vendor/`。更新需核对版本，并运行 `node scripts/vendor-kimi.mjs <固定版本的 kimi-code 源码目录>`。不能只替换提示词而假定新版本工具/协议兼容。
 
