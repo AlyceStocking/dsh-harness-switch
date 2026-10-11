@@ -24,7 +24,7 @@ test('settings slot renders, edits a binding, and saves through authenticated RP
       throw new Error('Unexpected endpoint');
     } } },
   });
-  assert.equal(registrations.length, 2);
+  assert.equal(registrations.length, 1);
   const root = createRoot(document.getElementById('root'));
   try {
     await act(async () => { root.render(React.createElement(registrations.find(r => r.options.name === 'settings.section').component)); });
@@ -32,7 +32,6 @@ test('settings slot renders, edits a binding, and saves through authenticated RP
       const button = [...document.querySelectorAll('button')].find(b => b.textContent === text);
       assert.ok(button, text); await act(async () => button.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true })));
     };
-    await click('连接配置');
     assert.match(document.body.textContent, /不复制密钥/);
     assert.equal(document.querySelector('select').value, 'kimi-code');
     await click('添加模型绑定');

@@ -5,10 +5,10 @@ window.__ModuleLoader__.load({
     const h = React.createElement;
     const { useState, useEffect, useRef } = React;
     const en = {
-      title: 'Model Harness', intro: 'Kimi Code owns this conversation, its prompt, tools and history. Your usual DSH composer continues to use DSH.',
+      title: 'Model Harness', intro: 'Use Kimi in the native DSH conversation. Choose a harness for each model binding below, then select it in the normal model picker.',
       settings: 'Configuration', chat: 'Kimi conversation', executable: 'Kimi executable', home: 'Kimi configuration directory',
-      homeHelp: 'Reuse the same config.toml, skills and MCP settings as Kimi Code. API credentials stay in Kimi; no key is copied to this plugin.',
-      models: 'Read configured models', save: 'Save configuration', saved: 'Saved. Existing sessions keep their original configuration.',
+      homeHelp: 'Read endpoint, model and authentication from Kimi config.toml. No key is copied to plugin settings. Kimi compatibility uses upstream API code and adapted prompt guidance; tools, permissions, skills and compaction remain DSH-owned.',
+      models: 'Read configured models', save: 'Save configuration', saved: 'Saved. Select the model in the native composer; changes apply to the next turn.',
       add: 'Add model binding', remove: 'Remove', label: 'Display name', model: 'Kimi model alias', harness: 'Harness',
       cwd: 'Working directory (absolute path)', restore: 'Saved Kimi session ID (optional)', start: 'Connect',
       close: 'Disconnect', cancel: 'Stop', send: 'Send', prompt: 'Message to Kimi', permission: 'Kimi requests a decision', reject: 'Decline',
@@ -19,10 +19,10 @@ window.__ModuleLoader__.load({
       plan: 'Plan', open: 'Open Model Harness', hide: 'Hide', invalid: 'Choose a model and working directory first.',
     };
     const zh = {
-      title: '模型 Harness', intro: '此会话的提示词、工具与历史由 Kimi Code 管理。DSH 原有输入框仍使用 DSH。',
+      title: '模型 Harness', intro: '在 DSH 原生会话中使用 Kimi。为模型绑定选择 Harness 后，在原生模型选择器中切换；历史保留在当前会话。',
       settings: '连接配置', chat: 'Kimi 会话', executable: 'Kimi 可执行文件', home: 'Kimi 配置目录',
-      homeHelp: '复用与 Kimi Code 相同的 config.toml、Skills 和 MCP 配置。API 凭据保留在 Kimi 中，插件不复制密钥。',
-      models: '读取已配置模型', save: '保存配置', saved: '已保存。现有会话继续使用创建时的配置。',
+      homeHelp: '从 Kimi config.toml 读取端点、模型与认证，不复制密钥到插件配置。兼容套装复用 Kimi API 代码与适配后的提示词；工具、权限、Skills 和压缩仍由 DSH 管理。',
+      models: '读取已配置模型', save: '保存配置', saved: '已保存。在原生输入框中选择模型，配置从下一轮生效。',
       add: '添加模型绑定', remove: '移除', label: '显示名称', model: 'Kimi 模型别名', harness: 'Harness 套装',
       cwd: '工作目录（绝对路径）', restore: '恢复 Kimi 会话 ID（可选）', start: '连接', close: '断开连接', cancel: '停止', send: '发送',
       prompt: '发给 Kimi 的消息', permission: 'Kimi 请求你作出选择', reject: '拒绝', empty: '连接后开始 Kimi 会话。', loading: '加载中…',
@@ -44,7 +44,7 @@ window.__ModuleLoader__.load({
           return result.value;
         };
         function Panel() {
-          const [tab, setTab] = useState('chat');
+          
           const [config, setConfig] = useState(null);
           const [harnesses, setHarnesses] = useState([]);
           const [models, setModels] = useState([]);
@@ -67,32 +67,15 @@ window.__ModuleLoader__.load({
             const result = await rpc('settings/read');
             if (!live.current) return;
             setConfig(result.settings); setHarnesses(result.harnesses); setBinding(result.settings.bindings[0].id);
-            const connections = await rpc('sessions/list'); if (live.current) setActive(connections);
+
           };
           useEffect(() => { live.current = true; run(reload); return () => { live.current = false; }; }, []);
-          useEffect(() => {
-            if (!session?.id) return;
-            const controller = new AbortController();
-            let revision = -1;
-            (async () => {
-              try {
-                while (!controller.signal.aborted) {
-                  const next = await rpc('sessions/read', { id: session.id, revision }, controller.signal);
-                  if (controller.signal.aborted) break;
-                  revision = next.revision;
-                  setSession(old => old?.id === next.id && old.revision <= next.revision ? next : old);
-                  if (next.status === 'closed') break;
-                }
-              } catch (e) { if (!controller.signal.aborted) setError(e.message); }
-            })();
-            return () => controller.abort();
-          }, [session?.id]);
           const button = (label, onClick, disabled = busy, extra = {}) => h('button', { type: 'button', onClick, disabled, ...extra }, label);
           const field = (label, value, change, extra = {}) => h('label', null, label, h('input', { value, onChange: e => change(e.target.value), ...extra }));
           const patch = value => setConfig(old => ({ ...old, ...value }));
           const updateBinding = (id, value) => patch({ bindings: config.bindings.map(b => b.id === id ? { ...b, ...value } : b) });
           const settingsView = config && h(React.Fragment, null,
-            h('div', { className: 'hs-grid' }, field(t('executable'), config.command, command => patch({ command })), field(t('home'), config.kimiHome, kimiHome => patch({ kimiHome }))),
+            h('div', { className: 'hs-grid' }, field(t('home'), config.kimiHome, kimiHome => patch({ kimiHome }))),
             h('p', { className: 'hs-muted' }, t('homeHelp')),
             button(t('models'), () => run(async () => setModels(await rpc('models/read', { kimiHome: config.kimiHome })))),
             h('p', { className: 'hs-muted' }, t('modelHint')),
@@ -106,48 +89,11 @@ window.__ModuleLoader__.load({
               button(t('remove'), () => patch({ bindings: config.bindings.filter(row => row.id !== b.id) }), busy || config.bindings.length === 1))),
             h('div', { className: 'hs-row' }, button(t('add'), () => patch({ bindings: [...config.bindings, { id: `model-${Date.now()}`, label: 'Kimi', model: '', harness: 'kimi-code' }] })),
               button(t('save'), () => run(async () => { const saved = await rpc('settings/save', config); setConfig(saved); setBinding(saved.bindings[0].id); setNotice(t('saved')); }))));
-          const start = () => run(async () => {
-            if (!binding || !cwd) throw new Error(t('invalid'));
-            setSession(await rpc('sessions/start', { bindingId: binding, cwd, ...(restore.trim() ? { sessionId: restore.trim() } : {}) }));
-            setActive(await rpc('sessions/list'));
-          });
-          const messages = session?.messages || [];
-          const chatView = config && h(React.Fragment, null,
-            !session || session.status === 'closed' ? h(React.Fragment, null,
-              h('label', null, t('model'), h('select', { value: binding, onChange: e => setBinding(e.target.value) }, ...config.bindings.map(b => h('option', { key: b.id, value: b.id }, `${b.label} · ${b.harness}`)))),
-              field(t('cwd'), cwd, setCwd), field(t('restore'), restore, setRestore), button(t('start'), start),
-              active.length > 0 && h('div', { className: 'hs-card' }, h('strong', null, t('active')), ...active.map(a => button(`${t('reconnect')}: ${a.binding.label} · ${a.cwd}`, () => run(async () => setSession(await rpc('sessions/read', { id: a.id }))), busy, { key: a.id })))) :
-              h(React.Fragment, null,
-                h('div', { className: 'hs-row' }, h('strong', null, session.binding.label), h('span', null, t(session.status)),
-                  button(t('cancel'), () => run(async () => setSession(await rpc('sessions/cancel', { id: session.id }))), busy || session.status !== 'running'),
-                  button(t('close'), () => run(async () => { await rpc('sessions/close', { id: session.id }); setRestore(session.sessionId || ''); setCwd(session.cwd); setSession(null); setActive(await rpc('sessions/list')); }))),
-                h('small', null, `${t('runtime')}: ${session.runtime?.name || 'Kimi'} ${session.runtime?.version || ''}`),
-                h('small', null, `${t('session')}: ${session.sessionId || ''}`),
-                session.error && h('p', { role: 'alert' }, session.error),
-                session.trimmed && h('p', { className: 'hs-muted' }, t('retained')),
-                h('div', { className: 'hs-transcript', 'aria-label': t('chat') }, ...messages.map(m => h('article', { className: 'hs-card', key: m.id },
-                  h('strong', null, m.role === 'tool' ? `${m.title || t('tool')} · ${m.status || ''}` : t(m.role)),
-                  m.role === 'thinking' ? h('details', null, h('summary', null, t('thinking')), h('pre', { className: 'hs-text' }, m.text)) : h('pre', { className: 'hs-text' }, m.text)))),
-                session.plan && h('details', null, h('summary', null, t('plan')), ...session.plan.map((entry, i) => h('p', { key: i }, `${entry.status}: ${entry.content}`))),
-                ...session.permissions.map(p => h('div', { key: p.id, className: 'hs-card', role: 'group', 'aria-label': t('permission') },
-                  h('strong', null, t('permission')), h('p', null, p.toolCall.title),
-                  h('pre', { className: 'hs-text' }, JSON.stringify(p.toolCall.rawInput || p.toolCall.content || {}, null, 2)),
-                  h('div', { className: 'hs-row' }, ...p.options.map(o => button(o.name, () => run(() => rpc('sessions/permission', { id: session.id, requestId: p.id, optionId: o.optionId })), busy, { key: o.optionId })),
-                    button(t('reject'), () => run(() => rpc('sessions/permission', { id: session.id, requestId: p.id, optionId: null })))))),
-                h('form', { onSubmit: e => { e.preventDefault(); run(async () => { const next = await rpc('sessions/prompt', { id: session.id, text: message }); setSession(next); setMessage(''); }); } },
-                  h('label', null, t('prompt'), h('textarea', { value: message, onChange: e => setMessage(e.target.value), disabled: busy || session.status !== 'idle' })),
-                  h('button', { type: 'submit', disabled: busy || session.status !== 'idle' || !message.trim() }, t('send')))));
           return h('section', { className: 'hs-panel' }, h('style', null, css), h('h3', null, t('title')), h('p', { className: 'hs-muted' }, t('intro')),
-            h('div', { className: 'hs-row' }, ...['chat', 'settings'].map(value => button(t(value), () => setTab(value), false, { key: value, 'aria-pressed': tab === value }))),
             error && h('div', { role: 'alert', className: 'hs-alert' }, `${t('error')}: ${error}`, button(t('retry'), () => run(reload))),
-            notice && h('p', { role: 'status' }, notice), !config ? h('p', null, t('loading')) : tab === 'settings' ? settingsView : chatView);
-        }
-        function Dock() {
-          const [open, setOpen] = useState(false);
-          return h('div', { className: 'hs-dock' }, h('button', { type: 'button', onClick: () => setOpen(!open), 'aria-expanded': open }, t(open ? 'hide' : 'open')), open && h(Panel));
+            notice && h('p', { role: 'status' }, notice), !config ? h('p', null, t('loading')) : settingsView);
         }
         ctx.slots.inject('settings.section', () => ctx.slots.register({ name: 'settings.section', id: 'harness-switch', order: 70, label: () => t('title'), locale: 'harness-switch' }, Panel));
-        ctx.slots.inject('conversation.composer.dock', () => ctx.slots.register({ name: 'conversation.composer.dock', id: 'harness-switch', order: 70, locale: 'harness-switch' }, Dock));
       },
     };
   },

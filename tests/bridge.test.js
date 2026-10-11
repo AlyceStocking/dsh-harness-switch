@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 import { SettingsStore, defaults, readModels, validateSettings } from '../src/settings.js';
 import { KimiSession } from '../src/kimi.js';
-import { HarnessManager, resolveOptions } from '../index.js';
+import { HarnessManager, resolveOptions } from '../src/acp-prototype.js';
 
 const tempRoot = fileURLToPath(new URL('./', import.meta.url));
 const fixture = fileURLToPath(new URL('./mock-agent.js', import.meta.url));

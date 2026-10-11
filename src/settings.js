@@ -16,7 +16,7 @@ export function defaults() {
     bindings: [{ id: 'kimi-k3', label: 'Kimi K3', model: 'kimi-code/k3', harness: 'kimi-code' }] };
 }
 
-export function validateSettings(input, harnessIds = ['kimi-code']) {
+export function validateSettings(input, harnessIds = ['kimi-code', 'dsh']) {
   if (!input || input.version !== 1) throw new Error('Unsupported settings version');
   if (typeof input.command !== 'string' || !input.command.trim() || /[\r\n\0]/.test(input.command)) throw new Error('Invalid executable');
   if (/[\\/]/.test(input.command) && !isAbsolute(input.command)) throw new Error('Executable must be absolute or a PATH name');

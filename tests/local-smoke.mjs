@@ -3,7 +3,7 @@ import { join, resolve } from 'node:path';
 import { mkdir } from 'node:fs/promises';
 import { defaults } from '../src/settings.js';
 import { KimiSession } from '../src/kimi.js';
-import { resolveOptions } from '../index.js';
+import { resolveOptions } from '../src/acp-prototype.js';
 const root = process.env.DSH_MODULES;
 if (!root) throw new Error('Set DSH_MODULES to the installed DSH node_modules directory');
 const { Context } = await import(pathToFileURL(join(root, '@deepseek-ai/cordis/lib/index.js')).href);
