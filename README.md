@@ -1,36 +1,69 @@
 # DSH Harness Switch
 
-在 DeepSeek Harness 原生会话中调用 Kimi API，并为模型绑定选择 harness。
+在 DSH 原生会话中选择模型与 harness。v0.3 将开源 Kimi Code 的实际执行核心嵌入插件：提示词、工具定义与执行、Skills、权限规则、MCP 和上下文压缩由 Kimi 核心提供，不启动 Kimi CLI 聊天子进程。
 
-## 当前实现
+## 使用
 
-- 设置 →「模型 Harness」：读取 Kimi 配置中的模型别名，为每个绑定选择 `Kimi Code · compatible` 或 `DSH native`。
-- 原生模型选择器 → `Kimi · Harness Switch`：选择绑定后使用原生输入框、session 列表、工具卡片和历史。
-- 同一会话切回原有 DeepSeek provider 时恢复其原生提示词与工具；切换无需复制历史或启动另一个聊天面板。
-- 直接调用 API，不启动 Kimi CLI。可复用本机 Kimi `config.toml` 的 API key、环境变量 key 或文件 OAuth。OAuth 刷新采用上游锁机制。
-- 凭据不返回前端、不写入插件设置，也不纳入仓库。请求标识如实使用 `dsh-harness-switch`。
-
-## 安装
-
-已验证 Windows、Node 24、DSH **0.1.2-rc.1**。尚未验证 DSH 0.2 的新消息格式或其他桌面发行版。
+已验证 Windows、Node **24.19.0**、DSH **0.1.2-rc.1**。最低 Node 24.15；DSH 0.2 新消息格式及其他桌面发行版尚未验证。
 
 ```powershell
 gh repo clone AlyceStocking/dsh-harness-switch
 cd dsh-harness-switch
 npm ci
-# 在与桌面应用使用相同 DSH_HOME 的终端执行，profile 选择桌面实际使用的配置。
+# 使用桌面应用实际的 DSH_HOME 和 profile。web 只是示例。
 dsh plugin --profile web add (Get-Location).Path
 ```
 
-重新启动 DSH，在设置中打开「模型 Harness」，确认 Kimi 配置目录，点击「读取已配置模型」并保存。然后在原生模型选择器选择 `Kimi K3 · Kimi`。
+重启 DSH，进入设置 →「模型 Harness」：
 
-如需比较同一个 K3 的两种 harness，添加第二个模型绑定，模型别名同样填 `kimi-code/k3`，harness 选 `DSH native`。停止当前生成后切换。切回 DeepSeek 时直接选择 DSH 原有 DeepSeek 模型。
+1. 确认 Kimi 配置目录，点击「读取已配置模型」。复用 config.toml 的端点、模型与 API key / 环境变量 / 文件 OAuth；凭据不复制进插件配置或前端。
+2. 为 `kimi-code/k3` 等模型别名选择 **Kimi Code · embedded core**，保存。
+3. 在原生模型选择器的 `Kimi · Harness Switch` 中选择该绑定，选择工作区后正常聊天。旧版配置不会被静默迁移，需要手动改选 embedded core。
+4. 当前生成结束或停止后，可以在同一原生 session 选择已有 DeepSeek 模型，恢复其 DSH 提示词与工具。再切回 Kimi 时，新增的其他模型历史会作为参考历史导入 Kimi。
 
-插件默认配置文件位于 `$DSH_HOME/storages/harness-switch/<DSH_PROFILE 或 default>.json`。如果多个 profile 由同一进程环境启动，可在插件配置中指定不同的绝对路径 `settingsFile`。
+每个模型绑定可选择：
 
-## 不安装 Kimi CLI 时的配置
+| Harness | 行为 |
+| --- | --- |
+| Kimi Code · embedded core | 完整嵌入式 Kimi 执行核心，默认选项 |
+| Kimi prompt · legacy | v0.2 的适配提示词，工具、Skills、压缩使用 DSH |
+| DSH native | Kimi API + DSH 原生提示词、工具与执行循环 |
 
-在设置中指定一个包含 `config.toml` 的目录。例如：
+比较相同模型的不同 harness 时，添加两个绑定并选择相同模型别名即可。尚未实现其他厂商 harness。
+
+## 原生会话与权限
+
+DSH session 列表、输入框和最终回答保持原生。一次 Kimi 执行显示为 `kimi_harness_turn` 工具卡片，卡片内部展示 Kimi 工具调用/结果、思考、Skill 与压缩事件。真实工具只在 Kimi 内执行一次。DSH 的外层模型适配器仅编排这个本地入口，不再调用模型执行第二遍。
+
+Kimi 核心采用 manual 权限模式。需要审批的动作、工作区信任和提问映射到 DSH 原生审批/问题界面；拒绝、取消或不可用均不自动放行。DSH 需要配置可用的审批 UI 与允许询问的策略（`policy: ask`）；`never` 策略会拒绝需要审批的动作。本插件不修改全局审批设置。Kimi 判断无需审批的读取等动作保持上游行为，DSH 的逐工具 allowlist 不会另外检查 Kimi 内部工具。
+
+可直接在输入框发送：
+
+- `/kimi-skill <名称> [任务]`：通过上游 SDK 显式激活 Skill。普通消息也能由模型使用 Skill 工具。
+- `/kimi-compact [保留内容要求]`：调用 Kimi 自身压缩。自动压缩也由 Kimi 核心管理。DSH 外层传输模型不声明上下文预算，避免对它进行第二次模型上下文压缩。
+
+项目 Skills 的发现根目录与上游一致，通常是 Git 项目根目录；用户 Skills 沿用 Kimi home。这里的命令是插件桥接命令，不代表实现了 Kimi CLI 的所有交互命令。
+
+## 一致性与边界
+
+固定复用 [Kimi Code 源码](https://github.com/MoonshotAI/kimi-code/tree/c9f01f07388abc2cdca40c9c5267f58c65086710) 的 Node SDK、agent core、kosong provider、工具、Skills、MCP、权限与压缩模块。构建产物、来源和 MIT 许可保留在 `vendor/`。唯一功能性源码补丁将 query-index 缓存隔离到 Kimi home 下 `cache/dsh-harness-switch`，避免与 CLI 的独占数据库锁冲突。构建解析器另外处理工作区模块、原始提示词资源与 ESM 导入。
+
+同一核心版本和配置能最大程度保持调用行为一致，但不承诺两端请求逐字节相同：宿主身份、工作区/时间、会话状态、UI 能力和跨模型导入的历史会不同。完整系统提示词由上游核心生成；不再用 legacy 模板代替。
+
+当前限制：
+
+- 输入桥接仅支持文本；图片输入明确报错。Kimi CLI 专属面板、终端快捷键、所有 slash 命令没有移植。内部工具保持上游定义，但仍受宿主平台、依赖和 UI capability 限制。
+- 原始 Kimi 日志、上下文、压缩和执行状态留在 Kimi home；DSH 存储可显示的执行投影和最终回答，不能将 DSH 工具事件无损转换成另一 harness 的内部状态。跨模型历史作为参考导入，并移除其他模型的思考字段。
+- 插件映射与卡片快照位于设置文件旁的 `engine/`。同时保留 DSH 存储、该目录和 Kimi home 才能完整恢复。中断且结果未落盘的请求不会自动重跑；请发送新消息继续。
+- 更改同一 session 的 Kimi home、工作区或固定核心版本会拒绝复用旧状态，需新建 session。不要同时用 CLI 操作插件正在使用的同一个 Kimi session。多个 DSH 进程共享同一 Kimi home 的嵌入缓存尚不支持。
+- Kimi 原生 token 用量/预算尚未映射到 DSH 外层统计；原始记录在 Kimi 会话中。后台任务生命周期、MCP 服务和全部平台工具尚未逐项端到端验证。
+- 这是插件执行桥接，不是操作系统沙箱。嵌入模式使用 Kimi 的策略；DSH 全局系统提示词扩展不自动注入 Kimi 核心。
+
+设置文件默认位于 `$DSH_HOME/storages/harness-switch/<DSH_PROFILE 或 default>.json`。多 profile 时可在插件配置中指定独立绝对路径 `settingsFile`。
+
+## 独立 API 配置
+
+无需安装 CLI，但需要有效 Kimi 配置及授权。例如：
 
 ```toml
 [providers.kimi]
@@ -44,37 +77,30 @@ model = "k3"
 max_context_size = 262144
 ```
 
-模型 ID、区域端点、上下文上限须与账户实际权限一致；示例不承诺账户可使用该模型或上下文长度。启动 DSH 的进程需能读取环境变量。也可沿用 Kimi Code 登录生成的配置与 OAuth 文件，无需复制 token。
+模型 ID、端点和上下文上限以账户权限及 [Kimi 配置文档](https://www.kimi.com/code/docs/en/kimi-code-cli/configuration/config-files.html) 为准。启动 DSH 的进程须能读取环境变量。
 
-## 与 Kimi Code 的一致性边界
-
-| 部分 | 实现 |
-| --- | --- |
-| API 请求、流解析、thinking、tool-call ID 规范化 | 复用固定版本的 Kimi Code `kosong` provider |
-| OAuth 刷新与共享文件锁 | 复用固定版本的 Kimi Code OAuth 模块 |
-| 系统提示词 | 复用公开模板主要指导；替换产品/界面信息，移除不适用的环境与工具防护声明，保留 DSH 运行上下文与策略 |
-| 工具名称、参数、执行和结果格式 | DSH 原生定义；**不与 Kimi Code 完全一致** |
-| Skills、MCP、权限审批、项目上下文、压缩 | DSH 管理；不自动导入 Kimi Code 配置 |
-| 会话存储、继续、原生模型切换 | DSH 管理，不创建 Kimi CLI 会话 |
-
-因此 `Kimi Code · compatible` 是兼容提示词套装，**不是完整 Kimi Code harness 复刻**。完全一致需要将 Kimi 的工具/执行循环/压缩等一起移植并适配 DSH 的会话与审批接口。当前版本优先保证原生会话连续性，不宣称达成提示词和工具逐字节一致。
-
-当前仅支持文本输入及文本工具结果；遇到图片不会静默丢弃，而是报告请求失败。K3 thinking 支持 low/high/max。完整 persona 覆盖与 Kimi 提示词冲突时会拒绝请求；先移除该覆盖或选择 DSH native。
-
-## 验证与开发
+## 验证与构建
 
 ```powershell
 npm ci
 npm test
 npm run check
+# 以下是显式运行的真实 API 测试，会消耗账户额度。
 $env:DSH_MODULES = '你的 DSH 安装目录/node_modules'
+node tests/engine-smoke.mjs
+# legacy 提示词与 DSH 原生工具路径
 node tests/native-smoke.mjs
 ```
 
-`native-smoke.mjs` 会调用真实 Kimi API并消耗额度：验证 DSH agent loop 的工具调用、同一 session 的模型切换、提示词恢复和历史保留。用于切回原生的适配器是本地测试替身，不会调用真实 DeepSeek API。设置界面已通过 React/jsdom 测试，以及隔离 DSH Web 配置中的页面显示、模型读取和保存操作验证。桌面原生工作区选择器未在此次浏览器检查中验证。独立 ACP 原型留在 `src/acp-prototype.js`，不由正式插件启动。
+自动测试覆盖审批拒绝、停止/卸载无事件死等、去重、恢复、外部工具历史导入、异常不泄露认证数据、Skill/压缩 API 路由和设置/工具卡片渲染。
 
-上游快照与 MIT 授权在 `vendor/`。更新需核对版本，并运行 `node scripts/vendor-kimi.mjs <固定版本的 kimi-code 源码目录>`。不能只替换提示词而假定新版本工具/协议兼容。
+真实 API 集成测试已验证 K3 的 Kimi Read、项目 Skill 激活、压缩，以及在同一 DSH agent/session 中切换回原生适配器再返回 Kimi。测试中的原生模型是本地替身，未调用真实 DeepSeek API。设置界面曾在隔离 DSH Web 配置中验证；v0.3 新工具卡片已做 React/jsdom 测试，桌面端尚未完整人工验收。
 
-- [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
-- [Kimi Code 配置文档](https://www.kimi.com/code/docs/en/kimi-code-cli/configuration/config-files.html)
-- [Kimi Code 开源仓库](https://github.com/MoonshotAI/kimi-code)
+源码重新打包需使用上述固定 commit：
+
+```powershell
+node scripts/vendor-kimi.mjs ../kimi-code
+node scripts/vendor-engine.mjs ../kimi-code
+```
+
+SDK 尚未作为稳定公共 npm 包提供，因此提交固定构建产物。更新版本需重新核对工具/状态兼容性；不要只替换提示词。旧 ACP 原型保留在 `src/acp-prototype.js`，正式插件不启动它。

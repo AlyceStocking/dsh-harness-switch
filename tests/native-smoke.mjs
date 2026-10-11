@@ -17,12 +17,13 @@ const { defineContentToolFixture } = await load('dsh-tools');
 const ctx = new Context();
 const fibers = [];
 try {
-  for (const name of ['dsh-llm', 'dsh-session', 'dsh-session-projection', 'dsh-system-prompt', 'dsh-tools', 'dsh-agent', 'dsh-agent-loop']) {
+  for (const name of ['dsh-llm', 'dsh-session', 'dsh-session-projection', 'dsh-system-prompt', 'dsh-tools', 'dsh-agent', 'dsh-agent-loop', 'dsh-user-approval', 'dsh-user-questions']) {
     fibers.push(await ctx.plugin((await load(name)).default, name === 'dsh-agent-loop' ? { agents: [] } : {}));
   }
   ctx.provide('connection', { rpc: { handle() { return () => {}; } } });
   await mkdir('tests/.smoke-workspace', { recursive: true });
   const config = defaults();
+  config.bindings[0].harness = 'kimi-code';
   config.bindings.push({ id: 'kimi-dsh', label: 'Kimi with DSH', model: 'kimi-code/k3', harness: 'dsh' });
   await new SettingsStore(resolve('tests/.smoke-workspace/native-settings.json')).save(config);
   const kimiRequests = [];

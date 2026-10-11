@@ -13,10 +13,10 @@ export function absolutePath(value, label) {
 
 export function defaults() {
   return { version: 1, command: 'kimi', kimiHome: process.env.KIMI_CODE_HOME || join(homedir(), '.kimi-code'),
-    bindings: [{ id: 'kimi-k3', label: 'Kimi K3', model: 'kimi-code/k3', harness: 'kimi-code' }] };
+    bindings: [{ id: 'kimi-k3', label: 'Kimi K3', model: 'kimi-code/k3', harness: 'kimi-engine' }] };
 }
 
-export function validateSettings(input, harnessIds = ['kimi-code', 'dsh']) {
+export function validateSettings(input, harnessIds = ['kimi-engine', 'kimi-code', 'dsh']) {
   if (!input || input.version !== 1) throw new Error('Unsupported settings version');
   if (typeof input.command !== 'string' || !input.command.trim() || /[\r\n\0]/.test(input.command)) throw new Error('Invalid executable');
   if (/[\\/]/.test(input.command) && !isAbsolute(input.command)) throw new Error('Executable must be absolute or a PATH name');

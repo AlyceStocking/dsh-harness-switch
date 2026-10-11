@@ -7,7 +7,7 @@ window.__ModuleLoader__.load({
     const en = {
       title: 'Model Harness', intro: 'Use Kimi in the native DSH conversation. Choose a harness for each model binding below, then select it in the normal model picker.',
       settings: 'Configuration', chat: 'Kimi conversation', executable: 'Kimi executable', home: 'Kimi configuration directory',
-      homeHelp: 'Read endpoint, model and authentication from Kimi config.toml. No key is copied to plugin settings. Kimi compatibility uses upstream API code and adapted prompt guidance; tools, permissions, skills and compaction remain DSH-owned.',
+      homeHelp: 'Read endpoint, model and authentication from Kimi config.toml. No key is copied to plugin settings. Embedded core runs Kimi’s prompt, tools, Skills and compaction. Permissions appear in DSH. Stop the current turn before switching harnesses.',
       models: 'Read configured models', save: 'Save configuration', saved: 'Saved. Select the model in the native composer; changes apply to the next turn.',
       add: 'Add model binding', remove: 'Remove', label: 'Display name', model: 'Kimi model alias', harness: 'Harness',
       cwd: 'Working directory (absolute path)', restore: 'Saved Kimi session ID (optional)', start: 'Connect',
@@ -21,7 +21,7 @@ window.__ModuleLoader__.load({
     const zh = {
       title: '模型 Harness', intro: '在 DSH 原生会话中使用 Kimi。为模型绑定选择 Harness 后，在原生模型选择器中切换；历史保留在当前会话。',
       settings: '连接配置', chat: 'Kimi 会话', executable: 'Kimi 可执行文件', home: 'Kimi 配置目录',
-      homeHelp: '从 Kimi config.toml 读取端点、模型与认证，不复制密钥到插件配置。兼容套装复用 Kimi API 代码与适配后的提示词；工具、权限、Skills 和压缩仍由 DSH 管理。',
+      homeHelp: '从 Kimi config.toml 读取端点、模型与认证，不复制密钥到插件配置。嵌入核心使用 Kimi 原生提示词、工具、Skills 与压缩；审批在 DSH 中显示。切换套装前先停止当前生成。',
       models: '读取已配置模型', save: '保存配置', saved: '已保存。在原生输入框中选择模型，配置从下一轮生效。',
       add: '添加模型绑定', remove: '移除', label: '显示名称', model: 'Kimi 模型别名', harness: 'Harness 套装',
       cwd: '工作目录（绝对路径）', restore: '恢复 Kimi 会话 ID（可选）', start: '连接', close: '断开连接', cancel: '停止', send: '发送',
@@ -82,12 +82,53 @@ window.__ModuleLoader__.load({
                 h('label', null, t('harness'), h('select', { value: b.harness, onChange: e => updateBinding(b.id, { harness: e.target.value }) },
                   ...harnesses.map(hs => h('option', { key: hs.id, value: hs.id }, hs.label))))),
               button(t('remove'), () => patch({ bindings: config.bindings.filter(row => row.id !== b.id) }), busy || config.bindings.length === 1))),
-            h('div', { className: 'hs-row' }, button(t('add'), () => patch({ bindings: [...config.bindings, { id: `model-${Date.now()}`, label: 'Kimi', model: '', harness: 'kimi-code' }] })),
+            h('div', { className: 'hs-row' }, button(t('add'), () => patch({ bindings: [...config.bindings, { id: `model-${Date.now()}`, label: 'Kimi', model: '', harness: 'kimi-engine' }] })),
               button(t('save'), () => run(async () => { const saved = await rpc('settings/save', config); setConfig(saved); setBinding(saved.bindings[0].id); setNotice(t('saved')); }))));
           return h('section', { className: 'hs-panel' }, h('style', null, css), h('h3', null, t('title')), h('p', { className: 'hs-muted' }, t('intro')),
             error && h('div', { role: 'alert', className: 'hs-alert' }, `${t('error')}: ${error}`, button(t('retry'), () => run(reload))),
             notice && h('p', { role: 'status' }, notice), !config ? h('p', null, t('loading')) : settingsView);
         }
+        function EngineTurnView({ callId, phase, block }) {
+          phase ||= block?.kind === 'tool-result' ? 'result' : 'start';
+          const [view, setView] = useState({ status: 'preparing', events: [] });
+          const [failure, setFailure] = useState('');
+          const id = block?.meta?.callId || callId;
+          useEffect(() => {
+            const controller = new AbortController(); let timer;
+            async function refresh() {
+              try {
+                const value = await rpc('engine/view', { callId: id }, controller.signal);
+                if (controller.signal.aborted) return;
+                setView(value);
+                if (!['completed', 'cancelled', 'failed'].includes(value.status) && phase !== 'result') timer = setTimeout(refresh, 500);
+              } catch (e) { if (!controller.signal.aborted) setFailure(e.message); }
+            }
+            refresh();
+            return () => { controller.abort(); clearTimeout(timer); };
+          }, [id, phase]);
+          const text = value => typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+          const events = view.events || [];
+          return h('section', { className: 'hs-panel', 'aria-label': 'Kimi Code' }, h('style', null, css),
+            h('strong', null, `Kimi Code · ${view.status}`),
+            failure && h('p', { role: 'alert' }, failure),
+            view.kimiSessionId && h('small', { className: 'hs-muted' }, `${t('session')}: ${view.kimiSessionId}`),
+            h('div', { className: 'hs-transcript' }, ...events.map((event, i) => {
+              if (event.type === 'tool.call.started') return h('details', { key: i, className: 'hs-card' },
+                h('summary', null, `${event.agentId && event.agentId !== 'main' ? event.agentId + ' · ' : ''}${event.name}`),
+                h('pre', { className: 'hs-text' }, text(event.args)));
+              if (event.type === 'tool.result') return h('details', { key: i },
+                h('summary', null, `${events.find(e => e.toolCallId === event.toolCallId && e.name)?.name || t('tool')} · ${event.isError ? 'error' : 'result'}`),
+                h('pre', { className: 'hs-text' }, text(event.output)));
+              if (event.type === 'thinking.delta' || event.type === 'assistant.delta') return h('details', { key: i },
+                h('summary', null, event.type === 'thinking.delta' ? t('thinking') : t('assistant')),
+                h('pre', { className: 'hs-text' }, event.text));
+              if (event.type.startsWith('compaction.') || event.type.startsWith('skill.')) return h('p', { key: i, className: 'hs-muted' }, `${event.type}${event.skillName ? ': ' + event.skillName : ''}`);
+              return null;
+            })),
+            view.trimmed && h('p', { className: 'hs-muted' }, t('retained')),
+            phase === 'result' && !events.length && h('pre', { className: 'hs-text' }, text(block?.content || '')));
+        }
+        ctx.slots.inject('tool.call.toolview', () => ctx.slots.register({ name: 'tool.call.toolview', key: 'kimi_harness_turn', locale: 'harness-switch' }, EngineTurnView));
         ctx.slots.inject('settings.section', () => ctx.slots.register({ name: 'settings.section', id: 'harness-switch', order: 70, label: () => t('title'), locale: 'harness-switch' }, Panel));
       },
     };

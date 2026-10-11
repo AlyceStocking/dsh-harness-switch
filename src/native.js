@@ -6,7 +6,7 @@ import { KimiChatProvider } from '../vendor/kimi-provider.mjs';
 import { KimiOAuthToolkit, createKimiDefaultHeaders } from '../vendor/kimi-oauth.mjs';
 
 export const PROVIDER = 'kimi-harness';
-export const HARNESSES = [{ id: 'kimi-code', label: 'Kimi Code · compatible' }, { id: 'dsh', label: 'DSH native' }];
+export const HARNESSES = [{ id: 'kimi-engine', label: 'Kimi Code · embedded core' }, { id: 'kimi-code', label: 'Kimi prompt · legacy' }, { id: 'dsh', label: 'DSH native' }];
 const identity = { productName: 'dsh-harness-switch', version: '0.2.0', platform: 'dsh_harness_switch' };
 const sourcePrompt = readFileSync(new URL('../vendor/kimi-system.md', import.meta.url), 'utf8');
 // Environment claims in the upstream terminal prompt do not describe DSH's tool runtime.
@@ -126,7 +126,7 @@ export class NativeAdapter {
   providerRetryPolicy() { return undefined; }
   imageRequestPricing() { return undefined; }
   async listModels(provider) {
-    return (await this.store.read()).bindings.map(b => ({ provider, id: b.id, name: `${b.label} · ${b.harness === 'dsh' ? 'DSH' : 'Kimi'}`, inputModalities: ['text'] }));
+    return (await this.store.read()).bindings.map(b => ({ provider, id: b.id, name: `${b.label} · ${{ dsh: 'DSH', 'kimi-engine': 'Kimi Core', 'kimi-code': 'Kimi Prompt' }[b.harness]}`, inputModalities: ['text'] }));
   }
   async snapshot(provider, model) {
     if (provider !== PROVIDER) throw new Error('Unknown provider');
