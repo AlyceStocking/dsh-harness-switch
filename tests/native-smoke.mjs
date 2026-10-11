@@ -20,6 +20,7 @@ try {
   for (const name of ['dsh-llm', 'dsh-session', 'dsh-session-projection', 'dsh-system-prompt', 'dsh-tools', 'dsh-agent', 'dsh-agent-loop', 'dsh-user-approval', 'dsh-user-questions']) {
     fibers.push(await ctx.plugin((await load(name)).default, name === 'dsh-agent-loop' ? { agents: [] } : {}));
   }
+  fibers.push(await ctx.plugin((await load('dsh-attachment-local')).default, { dshHome: resolve('tests/.smoke-workspace/image-home') }));
   ctx.provide('connection', { rpc: { handle() { return () => {}; } } });
   await mkdir('tests/.smoke-workspace', { recursive: true });
   const config = defaults();

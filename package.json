@@ -1,6 +1,6 @@
 {
   "name": "@local/dsh-harness-switch",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "type": "module",
   "description": "Kimi API and per-model harness selection in native DSH sessions",

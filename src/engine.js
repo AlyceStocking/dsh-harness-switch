@@ -2,13 +2,14 @@ import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, readFile, writeFile, rename } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { NativeAdapter, PROVIDER } from './native.js';
+import { promptParts, importWithImages } from './images.js';
 
 export const ENGINE_HARNESS = 'kimi-engine';
 export const ENGINE_TOOL = 'kimi_harness_turn';
 export const ENGINE_COMMIT = 'c9f01f07388abc2cdca40c9c5267f58c65086710';
 class EngineError extends Error {}
 const hash = text => createHash('sha256').update(text).digest('hex');
-const identity = { productName: 'dsh-harness-switch', version: '0.3.0', platform: 'dsh_harness_switch' };
+const identity = { productName: 'dsh-harness-switch', version: '0.3.1', platform: 'dsh_harness_switch' };
 const textOf = blocks => (blocks || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
 
 async function readJson(path) { try { return JSON.parse(await readFile(path, 'utf8')); } catch (e) { if (e.code === 'ENOENT') return undefined; throw e; } }
@@ -118,7 +119,8 @@ export class EngineManager {
     if (!binding) throw new EngineError('The selected model is not an embedded Kimi binding');
     const history = native.deriveMessages();
     const message = history.find(m => m.id === args.messageId && m.role === 'user' && m.source?.kind === 'user');
-    if (!message || message.content.some(b => b.type !== 'text')) throw new EngineError('Embedded bridge currently accepts text user messages only');
+    if (!message || message.content.some(b => !['text', 'image'].includes(b.type))) throw new EngineError('Embedded bridge accepts text and image user messages');
+    const parts = await promptParts(message.content, this.ctx.attachments, exec.signal);
     const cwd = native.header?.cwd;
     if (!cwd) throw new EngineError('Select a DSH workspace before using the Kimi engine');
     await mkdir(this.directory, { recursive: true, mode: 0o700 });
@@ -150,14 +152,21 @@ export class EngineManager {
       await host.trustWorkspace(cwd);
     }
     const imported = conversationForImport(history, link.seen, message.id);
+    const importedParts = await importWithImages(imported, this.ctx.attachments, exec.signal);
     if (imported.length) {
-      await session.importContext(JSON.stringify(imported), 'DSH conversation since the previous Kimi turn');
-      link.seen = [...new Set([...link.seen, ...history.filter(m => m.id !== message.id).map(m => m.id)])];
-      await saveJson(linkFile, link);
+      await session.importContext(JSON.stringify(importedParts.history), 'DSH conversation since the previous Kimi turn');
+      // Image-bearing history is only acknowledged after the visual prompt completes.
+      if (!importedParts.images.length) {
+        link.seen = [...new Set([...link.seen, ...history.filter(m => m.id !== message.id).map(m => m.id)])];
+        await saveJson(linkFile, link);
+      }
     }
     const input = textOf(message.content);
     const compact = /^\/kimi-compact(?:\s|$)/.test(input);
     const skill = /^\/kimi-skill\s+(\S+)(?:\s+([\s\S]*))?$/.exec(input);
+    if (compact && (parts.some(p => p.type === 'image_url') || importedParts.images.length)) throw new EngineError('Send images in a normal message before requesting compaction.');
+    const visualHistory = importedParts.images.length ? [{ type: 'text', text: 'The following images belong to the imported prior conversation, in numbered order.' }, ...importedParts.images, { type: 'text', text: 'Current user message follows.' }] : [];
+    const prompt = [...visualHistory, ...parts];
     const view = { callId: exec.callId, kimiSessionId: session.id, status: 'running', events: [], commit: ENGINE_COMMIT };
     this.views.set(exec.callId, view);
     const done = Promise.withResolvers();
@@ -193,8 +202,8 @@ export class EngineManager {
       await saveJson(linkFile, link);
       exec.signal.throwIfAborted();
       if (compact) await session.compact({ instruction: input.replace(/^\/kimi-compact\s*/, '') || undefined });
-      else if (skill) await session.promptWithSkills(skill[2] || `Use the ${skill[1]} skill.`, [{ name: skill[1], args: skill[2] || '' }]);
-      else await session.prompt(input, { promptId: message.id });
+      else if (skill) await session.promptWithSkills(prompt, [{ name: skill[1], args: skill[2] || '' }]);
+      else await session.prompt(prompt, { promptId: message.id });
       const reason = await done.promise;
       exec.signal.throwIfAborted();
       if (reason !== 'completed') throw new EngineError(`Kimi turn ended: ${reason}`);
@@ -236,12 +245,21 @@ async function* textResponse(text) {
 }
 
 export class EngineAdapter extends NativeAdapter {
+  async listModels(provider) {
+    const models = await super.listModels(provider);
+    const settings = await this.store.read();
+    return Promise.all(models.map(async model => {
+      if (settings.bindings.find(b => b.id === model.id)?.harness !== ENGINE_HARNESS) return model;
+      try { return { ...model, inputModalities: (await this.snapshot(provider, model.id)).info.inputModalities }; }
+      catch { return model; }
+    }));
+  }
   async snapshot(provider, model) {
     const prepared = await super.snapshot(provider, model);
     if (prepared.connection.harness === ENGINE_HARNESS) {
       // The outer route is a local transport, not a second model context. Kimi owns its context budget.
       const { context, ...info } = prepared.info;
-      return { ...prepared, info };
+      return { ...prepared, info: { ...info, inputModalities: prepared.connection.imageInput ? ['text', 'image'] : ['text'] } };
     }
     return prepared;
   }

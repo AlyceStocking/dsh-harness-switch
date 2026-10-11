@@ -5,7 +5,7 @@ import { PROVIDER, HARNESSES, applyHarness } from './src/native.js';
 import { EngineManager, EngineAdapter, ENGINE_HARNESS } from './src/engine.js';
 
 export const name = 'harness-switch';
-export const inject = ['connection', 'llm', 'systemPrompt', 'agents', 'tools', 'approval', 'userQuestions'];
+export const inject = ['connection', 'llm', 'systemPrompt', 'agents', 'tools', 'approval', 'userQuestions', 'attachments'];
 
 export function apply(ctx, config = {}) {
   const home = process.env.DSH_HOME || join(homedir(), '.dsh');

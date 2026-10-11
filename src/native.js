@@ -7,7 +7,7 @@ import { KimiOAuthToolkit, createKimiDefaultHeaders } from '../vendor/kimi-oauth
 
 export const PROVIDER = 'kimi-harness';
 export const HARNESSES = [{ id: 'kimi-engine', label: 'Kimi Code · embedded core' }, { id: 'kimi-code', label: 'Kimi prompt · legacy' }, { id: 'dsh', label: 'DSH native' }];
-const identity = { productName: 'dsh-harness-switch', version: '0.2.0', platform: 'dsh_harness_switch' };
+const identity = { productName: 'dsh-harness-switch', version: '0.3.1', platform: 'dsh_harness_switch' };
 const sourcePrompt = readFileSync(new URL('../vendor/kimi-system.md', import.meta.url), 'utf8');
 // Environment claims in the upstream terminal prompt do not describe DSH's tool runtime.
 export const kimiPrompt = sourcePrompt.split('# Context management')[0].replace(/\$\{(\w+)\}/g, (_, key) => ({
@@ -33,7 +33,7 @@ export async function resolveConnection(settings, binding) {
   const baseUrl = provider.base_url;
   const url = new URL(baseUrl);
   if (url.protocol !== 'https:' && !(url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname))) throw new Error('API endpoint must use HTTPS (except loopback)');
-  return { model: model.model, contextWindow, baseUrl,
+  return { model: model.model, contextWindow, baseUrl, imageInput: model.capabilities?.includes('image_in') === true,
     async auth() {
       let apiKey = provider.api_key_env ? process.env[provider.api_key_env] : provider.api_key;
       if (provider.oauth) {
@@ -44,7 +44,7 @@ export async function resolveConnection(settings, binding) {
       }
       if (!apiKey) throw new Error('Configure a Kimi API key or sign in with Kimi Code');
       return { apiKey, headers: { ...createKimiDefaultHeaders({ ...identity, homeDir: settings.kimiHome }),
-        ...provider.custom_headers, 'User-Agent': 'dsh-harness-switch/0.2.0 (+https://github.com/AlyceStocking/dsh-harness-switch)' } };
+        ...provider.custom_headers, 'User-Agent': 'dsh-harness-switch/0.3.1 (+https://github.com/AlyceStocking/dsh-harness-switch)' } };
     },
   };
 }

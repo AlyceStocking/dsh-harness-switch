@@ -52,7 +52,8 @@ Kimi 核心采用 manual 权限模式。需要审批的动作、工作区信任�
 
 当前限制：
 
-- 输入桥接仅支持文本；图片输入明确报错。Kimi CLI 专属面板、终端快捷键、所有 slash 命令没有移植。内部工具保持上游定义，但仍受宿主平台、依赖和 UI capability 限制。
+- v0.3.1 的 embedded core 支持文字、单图和多图混合输入：读取 DSH 已验证的附件，通过 Kimi SDK 原生 image_url 内容块提交。模型配置须包含 capabilities = ["image_in", "thinking"]（可保留其他能力）；插件据此在 DSH 声明图片输入。DSH 上传阶段仍有自身的图片格式、尺寸和字节限制，不能承诺与 CLI 输入字节完全相同。legacy 和 DSH native 适配路径仍仅支持文字。
+- 切回 Kimi 时，尚未见过的其他模型会话图片会连同参考历史作为视觉内容导入；不会把 base64 当普通文字。视频、Kimi CLI 专属面板、终端快捷键、所有 slash 命令没有移植。内部工具保持上游定义，但仍受宿主平台、依赖和 UI capability 限制。
 - 原始 Kimi 日志、上下文、压缩和执行状态留在 Kimi home；DSH 存储可显示的执行投影和最终回答，不能将 DSH 工具事件无损转换成另一 harness 的内部状态。跨模型历史作为参考导入，并移除其他模型的思考字段。
 - 插件映射与卡片快照位于设置文件旁的 `engine/`。同时保留 DSH 存储、该目录和 Kimi home 才能完整恢复。中断且结果未落盘的请求不会自动重跑；请发送新消息继续。
 - 更改同一 session 的 Kimi home、工作区或固定核心版本会拒绝复用旧状态，需新建 session。不要同时用 CLI 操作插件正在使用的同一个 Kimi session。多个 DSH 进程共享同一 Kimi home 的嵌入缓存尚不支持。
@@ -75,6 +76,7 @@ api_key_env = "KIMI_API_KEY"
 provider = "kimi"
 model = "k3"
 max_context_size = 262144
+capabilities = ["image_in", "thinking"]
 ```
 
 模型 ID、端点和上下文上限以账户权限及 [Kimi 配置文档](https://www.kimi.com/code/docs/en/kimi-code-cli/configuration/config-files.html) 为准。启动 DSH 的进程须能读取环境变量。
@@ -88,11 +90,13 @@ npm run check
 # 以下是显式运行的真实 API 测试，会消耗账户额度。
 $env:DSH_MODULES = '你的 DSH 安装目录/node_modules'
 node tests/engine-smoke.mjs
+# 生成测试色块图片，验证图片输入、后续追问和跨模型图片导入
+node tests/image-smoke.mjs
 # legacy 提示词与 DSH 原生工具路径
 node tests/native-smoke.mjs
 ```
 
-自动测试覆盖审批拒绝、停止/卸载无事件死等、去重、恢复、外部工具历史导入、异常不泄露认证数据、Skill/压缩 API 路由和设置/工具卡片渲染。
+自动测试覆盖图片字节/顺序转换、附件读取失败、图片能力声明、视觉历史导入，以及审批拒绝、停止/卸载无事件死等、去重、恢复、外部工具历史导入、异常不泄露认证数据、Skill/压缩 API 路由和设置/工具卡片渲染。
 
 真实 API 集成测试已验证 K3 的 Kimi Read、经过 DSH 审批的 Bash、项目 Skill 激活、压缩，以及在同一 DSH agent/session 中切换回原生适配器再返回 Kimi。测试中的原生模型是本地替身，未调用真实 DeepSeek API。v0.3 设置界面已在隔离 DSH Web 配置中验证保存 embedded core；v0.3 新工具卡片已做 React/jsdom 测试，桌面端尚未完整人工验收。
 
