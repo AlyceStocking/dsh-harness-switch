@@ -132,3 +132,31 @@ test('adapter schedules one transport call and replays its final answer without 
   const reply = await Array.fromAsync(adapter.generate({ messages }, { harness: 'kimi-engine' }));
   assert.equal(reply.find(c => c.type === 'text-delta').text, 'upstream answer');
 });
+
+test('DSH 0.2 tool messages replay only the matching result, including errors', async () => {
+  const adapter = new EngineAdapter({});
+  const messages = [
+    { id: 'u', role: 'user', source: { kind: 'user' }, content: [{ type: 'text', text: 'test' }] },
+    { role: 'assistant', source: { provider: PROVIDER }, content: [{ type: 'tool-call', id: 'k', name: ENGINE_TOOL }] },
+    { role: 'tool', toolCallId: 'k', content: [{ type: 'text', text: JSON.stringify({ text: 'Kimi reply' }) }], isError: false },
+    { role: 'tool', toolCallId: 'other', content: [{ type: 'text', text: 'unrelated' }] },
+  ];
+  const run = () => Array.fromAsync(adapter.generate({ messages }, { harness: 'kimi-engine' }));
+  assert.equal((await run()).find(c => c.type === 'text-delta').text, 'Kimi reply');
+  messages[2] = { ...messages[2], isError: true, content: [{ type: 'text', text: 'cancelled' }] };
+  assert.match((await run()).find(c => c.type === 'text-delta').text, /cancelled/);
+});
+
+test('DSH 0.2 history imports foreign tool messages but excludes engine transport', () => {
+  const messages = [
+    { id: 'a', role: 'assistant', source: { provider: 'deepseek' }, content: [{ type: 'tool-call', id: 'x', name: 'Read' }] },
+    { id: 'r', role: 'tool', toolCallId: 'x', content: [{ type: 'text', text: 'file contents' }], isError: false },
+    { id: 'k', role: 'assistant', source: { provider: PROVIDER }, content: [{ type: 'tool-call', id: 'k', name: ENGINE_TOOL }] },
+    { id: 'kr', role: 'tool', toolCallId: 'k', content: [{ type: 'text', text: 'transport reply' }] },
+  ];
+  const imported = conversationForImport(messages, [], 'current');
+  assert.equal(imported.length, 2);
+  assert.equal(imported[1].content[0].toolCallId, 'x');
+  assert.match(JSON.stringify(imported), /file contents/);
+  assert.doesNotMatch(JSON.stringify(imported), /transport reply/);
+});

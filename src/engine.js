@@ -20,6 +20,10 @@ async function saveJson(path, data) {
 }
 
 export function conversationForImport(messages, seen, currentId) {
+  // DSH 0.2 stores tool results as messages; 0.1 used nested content blocks.
+  messages = messages.map(m => m.role === 'tool' ? { ...m, role: 'user', content: [{
+    type: 'tool-result', toolCallId: m.toolCallId, content: m.content, isError: m.isError,
+  }] } : m);
   const known = new Set(seen);
   const own = new Set();
   let engineTurn = false;
@@ -271,7 +275,8 @@ export class EngineAdapter extends NativeAdapter {
     const tail = messages.slice(userIndex + 1);
     const call = tail.flatMap(m => m.source?.provider === PROVIDER ? m.content : []).findLast(b => b.type === 'tool-call' && b.name === ENGINE_TOOL);
     if (call) {
-      const result = tail.flatMap(m => m.content).findLast(b => b.type === 'tool-result' && b.toolCallId === call.id);
+      const result = tail.flatMap(m => m.role === 'tool' ? [m] : m.content)
+        .findLast(b => (b.role === 'tool' || b.type === 'tool-result') && b.toolCallId === call.id);
       if (!result) throw new EngineError('Kimi turn transport is missing its tool result');
       if (result.isError) { yield* textResponse(`Kimi 执行未完成：${textOf(result.content)}`); return; }
       const parsed = JSON.parse(textOf(result.content));
