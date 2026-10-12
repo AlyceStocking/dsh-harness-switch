@@ -1,6 +1,6 @@
 {
   "name": "@local/dsh-harness-switch",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "private": true,
   "type": "module",
   "description": "Kimi API and per-model harness selection in native DSH sessions",
@@ -19,11 +19,13 @@
     "icon.svg",
     "cordis.patch.yml",
     "README.md",
+    "scripts/install-profile.mjs",
     "vendor"
   ],
   "scripts": {
+    "install:desktop": "node scripts/install-profile.mjs --profile desktop",
     "test": "node --test tests/*.test.js",
-    "check": "node --check index.js && node --check client.js"
+    "check": "node --check index.js && node --check client.js && node --check scripts/install-profile.mjs"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "1.4.0",

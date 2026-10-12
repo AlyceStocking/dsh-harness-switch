@@ -4,15 +4,23 @@
 
 ## 使用
 
-已验证 Windows、Node **24.19.0**、DSH **0.1.2-rc.1**。最低 Node 24.15；DSH 0.2 新消息格式及其他桌面发行版尚未验证。
+已验证 Windows、DSH Desktop **0.2.0-rc.2**；最低 Node 24.15。桌面安装使用应用自带的 CLI 和 pnpm。
 
 ```powershell
 gh repo clone AlyceStocking/dsh-harness-switch
 cd dsh-harness-switch
 npm ci
-# 使用桌面应用实际的 DSH_HOME 和 profile。web 只是示例。
-dsh plugin --profile web add (Get-Location).Path
+# 查看将要修改的桌面 profile；此命令不执行安装。
+npm run install:desktop
+# 完全退出 Desktop 后安装或升级。
+npm run install:desktop -- --apply
 ```
+
+v0.3.2 的安装脚本把 `npm pack --ignore-scripts` 的产物保存在当前 profile 的 `packages/`，文件名包含完整 SHA256。先完整写入临时文件，再通过原子硬链接发布最终文件并校验副本；文件系统须支持硬链接（Windows 默认 NTFS 支持）。它通过桌面自带 DSH CLI 安装 `@local/dsh-harness-switch@file:./packages/<文件名>.tgz`，由 pnpm 更新依赖和锁文件；不直接改写锁文件。旧包和修改前配置保留在 profile 内，升级不覆盖旧包，不依赖源码目录链接或临时目录。不要删除被 `package.json` 或锁文件引用的包。通过市场安装其他插件也可能重新读取这些文件。
+
+默认使用 `%USERPROFILE%\.dsh`（或 `DSH_HOME`）。自定义位置可运行 `node scripts/install-profile.mjs --home <DSH_HOME> --desktop-dir <桌面安装目录> --profile desktop --apply`。脚本保留现有构建策略；若 pnpm 要求审批依赖构建脚本，先核对具体依赖再配置，不要全局放开。
+
+已有外部 `file:` 安装可用同一命令迁移，无需卸载插件。Windows 外部绝对路径曾出现文件存在但 pnpm 报 ENOENT；隔离安装并未稳定复现，不能断言绝对路径语法有错。profile 内的不可变包用于保证安装来源的生命周期，不代表已证明修复 pnpm 的底层文件读取问题。
 
 重启 DSH，进入设置 →「模型 Harness」：
 
