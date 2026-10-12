@@ -5,7 +5,7 @@ import { PROVIDER, HARNESSES, applyHarness } from './src/native.js';
 import { EngineManager, EngineAdapter, ENGINE_HARNESS } from './src/engine.js';
 
 export const name = 'harness-switch';
-export const inject = ['connection', 'llm', 'systemPrompt', 'agents', 'tools', 'approval', 'userQuestions', 'attachments'];
+export const inject = ['webServer', 'connection', 'llm', 'systemPrompt', 'agents', 'tools', 'approval', 'userQuestions', 'attachments'];
 
 export function apply(ctx, config = {}) {
   const home = process.env.DSH_HOME || join(homedir(), '.dsh');
@@ -44,7 +44,7 @@ export function apply(ctx, config = {}) {
     }
     return applyHarness(assembled, binding);
   });
-  ctx.effect(() => ctx.connection.rpc.handle('/harness-switch', async (endpoint, payload) => {
+  ctx.effect(() => ctx.connection.register(ctx, '/harness-switch', async (endpoint, payload) => {
     try {
       let value;
       if (endpoint === 'settings/read') value = { settings: await store.read(), harnesses: HARNESSES };
