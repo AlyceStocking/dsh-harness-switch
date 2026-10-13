@@ -11,7 +11,7 @@ test('install and upgrade retain immutable profile-local archives after the sour
   const profile = join(root, 'profile with spaces');
   await writeFile(source, 'release one');
   const first = await retainArchive(profile, source, '0.3.1');
-  assert.equal(first.installSpec, `@local/dsh-harness-switch@${first.specifier}`);
+  assert.equal(first.installSpec, `dsh-harness-switch@${first.specifier}`);
   assert.match(first.specifier, /^file:\.\/packages\/[^/]+\.tgz$/);
   assert.deepEqual(await retainArchive(profile, source, '0.3.1'), first);
   await writeFile(source, 'release two');

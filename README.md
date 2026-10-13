@@ -2,6 +2,19 @@
 
 在 DSH 原生会话中选择模型与 harness。v0.3 将开源 Kimi Code 的实际执行核心嵌入插件：提示词、工具定义与执行、Skills、权限规则、MCP 和上下文压缩由 Kimi 核心提供，不启动 Kimi CLI 聊天子进程。
 
+## 当前版本与 npm 分发
+
+**0.3.3** 以 npm 包名 `dsh-harness-switch` 准备公开分发，包含 0.3.2 的 profile 内不可变安装包修复，以及 DSH 0.2 RPC / tool-result 兼容修复。原本机包名是 `@local/dsh-harness-switch`。
+
+```powershell
+# npm 发布完成后使用
+dsh plugin --profile desktop add dsh-harness-switch@0.3.3
+```
+
+从旧 `@local/dsh-harness-switch` 迁移时，请先备份 profile，完全退出 DSH，并移除旧包后再安装新包，避免两个包重复注册相同功能。不要删除 `$DSH_HOME/storages/harness-switch` 或 Kimi home；设置和会话仍使用原存储位置。这个包名迁移本身尚未进行真实桌面端到端验证，既有本机安装不需要立即迁移。
+
+公开仓库添加 `dsh-plugin` topic 后可由 dshfind 收录；私有仓库无法被公开目录检索。npm 包和 GitHub 仓库分别发布。
+
 ## 使用
 
 已验证 Windows、DSH Desktop **0.2.0-rc.2**；最低 Node 24.15。桌面安装使用应用自带的 CLI 和 pnpm。
@@ -16,7 +29,7 @@ npm run install:desktop
 npm run install:desktop -- --apply
 ```
 
-v0.3.2 的安装脚本把 `npm pack --ignore-scripts` 的产物保存在当前 profile 的 `packages/`，文件名包含完整 SHA256。先完整写入临时文件，再通过原子硬链接发布最终文件并校验副本；文件系统须支持硬链接（Windows 默认 NTFS 支持）。它通过桌面自带 DSH CLI 安装 `@local/dsh-harness-switch@file:./packages/<文件名>.tgz`，由 pnpm 更新依赖和锁文件；不直接改写锁文件。旧包和修改前配置保留在 profile 内，升级不覆盖旧包，不依赖源码目录链接或临时目录。不要删除被 `package.json` 或锁文件引用的包。通过市场安装其他插件也可能重新读取这些文件。
+v0.3.2 的安装脚本把 `npm pack --ignore-scripts` 的产物保存在当前 profile 的 `packages/`，文件名包含完整 SHA256。先完整写入临时文件，再通过原子硬链接发布最终文件并校验副本；文件系统须支持硬链接（Windows 默认 NTFS 支持）。它通过桌面自带 DSH CLI 安装 `dsh-harness-switch@file:./packages/<文件名>.tgz`，由 pnpm 更新依赖和锁文件；不直接改写锁文件。旧包和修改前配置保留在 profile 内，升级不覆盖旧包，不依赖源码目录链接或临时目录。不要删除被 `package.json` 或锁文件引用的包。通过市场安装其他插件也可能重新读取这些文件。
 
 默认使用 `%USERPROFILE%\.dsh`（或 `DSH_HOME`）。自定义位置可运行 `node scripts/install-profile.mjs --home <DSH_HOME> --desktop-dir <桌面安装目录> --profile desktop --apply`。脚本保留现有构建策略；若 pnpm 要求审批依赖构建脚本，先核对具体依赖再配置，不要全局放开。
 
@@ -106,7 +119,7 @@ node tests/native-smoke.mjs
 
 自动测试覆盖图片字节/顺序转换、附件读取失败、图片能力声明、视觉历史导入，以及审批拒绝、停止/卸载无事件死等、去重、恢复、外部工具历史导入、异常不泄露认证数据、Skill/压缩 API 路由和设置/工具卡片渲染。
 
-真实 API 集成测试已验证 K3 的 Kimi Read、经过 DSH 审批的 Bash、项目 Skill 激活、压缩，以及在同一 DSH agent/session 中切换回原生适配器再返回 Kimi。测试中的原生模型是本地替身，未调用真实 DeepSeek API。v0.3 设置界面已在隔离 DSH Web 配置中验证保存 embedded core；v0.3 新工具卡片已做 React/jsdom 测试，桌面端尚未完整人工验收。
+真实 API 集成测试已验证 K3 的 Kimi Read、经过 DSH 审批的 Bash、项目 Skill 激活、压缩，以及在同一 DSH agent/session 中切换回原生适配器再返回 Kimi。测试中的原生模型是本地替身，未调用真实 DeepSeek API。v0.3 设置界面已在隔离 DSH Web 配置中验证保存 embedded core；v0.3 新工具卡片已做 React/jsdom 测试。0.3.2 的 Windows Desktop 设置界面、模型选择器以及安装、重启、升级后的市场安装链已有验证；后台任务、MCP 与全部平台工具仍未逐项端到端验收。
 
 源码重新打包需使用上述固定 commit：
 

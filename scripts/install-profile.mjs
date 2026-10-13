@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { parseArgs } from 'node:util';
 
-const packageName = '@local/dsh-harness-switch';
+const packageName = 'dsh-harness-switch';
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 
 export async function retainArchive(profileDir, archive, version) {

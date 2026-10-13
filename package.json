@@ -1,7 +1,6 @@
 {
-  "name": "@local/dsh-harness-switch",
-  "version": "0.3.2",
-  "private": true,
+  "name": "dsh-harness-switch",
+  "version": "0.3.3",
   "type": "module",
   "description": "Kimi API and per-model harness selection in native DSH sessions",
   "license": "MIT",
@@ -20,7 +19,8 @@
     "cordis.patch.yml",
     "README.md",
     "scripts/install-profile.mjs",
-    "vendor"
+    "vendor",
+    "LICENSE"
   ],
   "scripts": {
     "install:desktop": "node scripts/install-profile.mjs --profile desktop",
@@ -84,5 +84,22 @@
   },
   "engines": {
     "node": ">=24.15.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AlyceStocking/dsh-harness-switch.git"
+  },
+  "homepage": "https://github.com/AlyceStocking/dsh-harness-switch#readme",
+  "bugs": {
+    "url": "https://github.com/AlyceStocking/dsh-harness-switch/issues"
+  },
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "dsh-harness-switch"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   }
 }

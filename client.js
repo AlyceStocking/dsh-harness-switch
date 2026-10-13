@@ -1,5 +1,5 @@
 window.__ModuleLoader__.load({
-  id: '@local/dsh-harness-switch',
+  id: 'dsh-harness-switch',
   factory(require) {
     const React = require('react');
     const h = React.createElement;
