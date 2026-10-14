@@ -4,10 +4,10 @@
 
 ## 当前版本与 npm 分发
 
-**0.3.3** 以 npm 包名 `dsh-harness-switch` 准备公开分发，包含 0.3.2 的 profile 内不可变安装包修复，以及 DSH 0.2 RPC / tool-result 兼容修复。原本机包名是 `@local/dsh-harness-switch`。
+**0.3.3** 已以 npm 包名 `dsh-harness-switch` 公开发布，包含 0.3.2 的 profile 内不可变安装包修复，以及 DSH 0.2 RPC / tool-result 兼容修复。原本机包名是 `@local/dsh-harness-switch`。
 
 ```powershell
-# npm 发布完成后使用
+# 从 npm 安装
 dsh plugin --profile desktop add dsh-harness-switch@0.3.3
 ```
 
